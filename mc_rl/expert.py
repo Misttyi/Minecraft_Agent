@@ -473,9 +473,11 @@ class Expert:
         if name == "hunt":
             return self.get_sword(state, priv, tracker) or self.hunt(state, priv)
         if name == "eat":
-            if state["meat"] >= 1 and state["food"] < 20:
-                return self.eat(state)
             if state["meat"] >= 1:
+                if state["hand"] not in MEAT_ITEMS or state["food"] < 20:
+                    return self.eat(state)
+                if state["stuck"] >= 2:
+                    return self.wander(state, priv)
                 return self.sprint_jump(state, priv)  # 满饥饿值吃不下：疾跑跳跃消耗饥饿值
             return self.get_sword(state, priv, tracker) or self.hunt(state, priv)
         if name == "shelter":
@@ -511,4 +513,37 @@ class Expert:
         有用的量：mem.ticks（当前刻）、state["dist"]（离出生点）、priv["nearest_log"/"nearest_animal"]、
         tracker.collected / tracker.events、self.committed（已经挖下去了）。
         """
-        raise NotImplementedError("TODO(学生)：设计老师的生存策略：白天在哪里做什么、什么时候躲、躲在哪里、饿了怎么办")
+        if self.committed or self.shaft_anchor is not None:
+            return self.shelter(state, tracker, priv)
+        if self.in_danger(state):
+            return self.go_home(state, mem)
+        if hungry:
+            return self.eat(state)
+
+        # 返程窗口有硬截止；离出生点太远时直接选附近的地面。
+        if mem.ticks >= self.shelter_tick or (
+            mem.ticks >= self.safe_shelter_tick and state["life"] <= 8
+        ):
+            return self.shelter(state, tracker, priv)
+        if mem.ticks >= self.hunt_until:
+            if 4 < state["dist"] <= 24:
+                return self.go_home(state, mem)
+            return self.shelter(state, tracker, priv)
+
+        # 用累计原木数判断第一阶段，避免合成消耗原木后又从头开始。
+        if tracker.collected["log"] < 3:
+            return self.chop_toward(state, priv)
+        if state["wooden_sword"] < 1 or state["wooden_pickaxe"] < 1:
+            step = self.craft_chain(state, want_tools=True, tracker=tracker)
+            if step:
+                return step
+            offset = state["table_offset"]
+            if offset and not state["table_near"] and state["planks"] >= 3 and state["stick"] >= 2:
+                yaw, _, _ = target_angles(*offset)
+                return self._turn_towards(state, yaw) or self._go(state, priv)
+            return self.chop_toward(state, priv)
+        if state["meat"] < 4:
+            return self.hunt(state, priv)
+        if mem.ticks >= self.safe_shelter_tick:
+            return self.shelter(state, tracker, priv)
+        return self.wander(state, priv)
