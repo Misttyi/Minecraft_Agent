@@ -1,0 +1,21 @@
+# minerl 0.4.4 请用包内预构建 wheel 单独安装，勿从 PyPI 源码安装。
+# 训练依赖（PPO / BC / 模仿学习）。游戏端用 Python 3.8。
+torch>=2.0,<3.0
+numpy<2
+gym==0.17.3
+opencv-python
+tqdm
+requests
+lxml
+psutil
+Pyro4
+coloredlogs
+pillow
+matplotlib
+dill
+daemoniker
+xmltodict
+inflection
+jinja2
+simple-term-menu
+filelock
